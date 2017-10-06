@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-
-from HTMLParser import HTMLParser
-import urllib2
+from html.parser import HTMLParser
+import urllib.request
+import urllib.parse
 
 # Html tag Sample
 '''
@@ -54,15 +54,15 @@ class MyHTMLParser(HTMLParser):
         if tag == 'table':
             if attr_dict.get('id', None) == 'threadlisttableid':
                 self.begin = True
-                print 'Start output...'
+                print('Start output...')
 
         # print '@', self.get_starttag_text()
 
         elif tag == 'tbody':
-            if attr_dict.has_key('id') and attr_dict.get('id', None).startswith('normalthread_'):
-                print 'Hit the target[list]', value
+            if 'id' in attr_dict and attr_dict.get('id', None).startswith('normalthread_'):
+                print('Hit the target[list]', value)
                 self.start_common = True
-                print '-----------------------------------------------------------------------'
+                print('-----------------------------------------------------------------------')
         elif tag == 'td':
             if attr_dict.get('class', None) == 'num':
                 self.start_num = True
@@ -74,8 +74,8 @@ class MyHTMLParser(HTMLParser):
         elif tag == 'a':
             if attr_dict.get('class', None) == 's xst':
                 self.in_title = True
-                print ROOT_PATH + attr_dict.get('href', None)
-            elif attr_dict.get('c', None) == '1' and attr_dict.has_key('href') and self.start_by:
+                print(ROOT_PATH + attr_dict.get('href', None))
+            elif attr_dict.get('c', None) == '1' and 'href' in attr_dict and self.start_by:
                 if attr_dict.get('href', None).startswith('space-uid-'):
                     self.in_writer = True
                 elif attr_dict.get('href', None).startswith('space-username-'):
@@ -89,21 +89,21 @@ class MyHTMLParser(HTMLParser):
         if self.begin:
             if self.in_title:
                 self.in_title = False
-                print 'Hit the target[title]', data
+                print('Hit the target[title]', data)
             elif self.in_writer:
                 self.in_writer = False
-                print 'Hit the target[writer]', data
+                print('Hit the target[writer]', data)
             elif self.in_date:
                 self.in_date = False
-                print 'Hit the target[date]', data
+                print('Hit the target[date]', data)
             elif self.in_viewer:
                 self.in_viewer = False
-                print 'Hit the target[viewer]', data
+                print('Hit the target[viewer]', data)
             elif self.start_num:
                 if self.lasttag == 'a':
-                    print 'Hit the target[reply]', data
+                    print('Hit the target[reply]', data)
                 elif self.lasttag == 'em':
-                    print 'Hit the target[view]', data
+                    print('Hit the target[view]', data)
 
     def handle_endtag(self, tag):
         if self.begin:
@@ -119,16 +119,15 @@ class MyHTMLParser(HTMLParser):
 
 # =============Define===================
 URL = 'https://www.incnjp.com/forum.php?mod=forumdisplay&fid=92&orderby=dateline&filter=author&page=14'
-
 # =============Run entry================
-request_headers = {'User-Agent': 'PeekABoo/1.3.7'}
-request = urllib2.Request(URL, None, request_headers)
-
 try:
-    response = urllib2.urlopen(request)
-    the_page = response.read()
-
+  request_headers = {'User-Agent': 'PeekABoo/1.3.7'}
+  request = urllib.request.Request(URL, None, request_headers)
+  response = urllib.request.urlopen(request)
+  the_page = response.read()
+  if the_page:
+#    print("Body:", the_page) #Debug
     parser = MyHTMLParser()
-    parser.feed(the_page)
-except urllib2.HTTPError as e:
-    print e
+    parser.feed(the_page.decode('utf-8'))
+except urllib.error.URLError as e:
+  print("Error:", e)
