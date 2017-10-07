@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
-from html.parser import HTMLParser
-import urllib.request
-import urllib.parse
+import html.parser as HP
+import urllib.request as UR
+import urllib.error as UE
+import ssl
+import xlwt
+
+# import openpyxl
 
 # Html tag Sample
 '''
@@ -34,7 +38,67 @@ import urllib.parse
 
 ROOT_PATH = 'http://www.incnjp.com/'
 
-class MyHTMLParser(HTMLParser):
+
+class DataHandler:
+    def __init__(self, name):
+        self.excel_name = name
+        self.excel = xlwt.Workbook()
+        self.current_sheet = self.excel.add_sheet(u'sheet1', cell_overwrite_ok=True)
+        self.current_col = 0
+        self.current_row = 0
+
+    def on_start(self):
+        print('Start')
+        # Table head
+        row_head = [u'Title', u'Author', u'Date', u'Reply', u'View', u'Reader']
+        for i in range(0, len(row_head)):
+            self.current_sheet.write(0, i, row_head[i])
+        ++self.current_row
+
+    def on_stop(self):
+        print('Stop')
+        self.excel.save(self.excel_name)
+
+    def on_item_begin(self):
+        print('>>>>>>>>>>>>')
+        self.current_col = 0
+
+    def on_item_end(self):
+        print('<<<<<<<<<<<<')
+        self.current_row += 1
+
+    def on_title(self, data):
+        print('[Title ]\t', data)
+        self.current_sheet.write(self.current_row, self.current_col, data)
+        self.current_col += 1
+
+    def on_writer(self, data):
+        print('[Author]\t', data)
+        self.current_sheet.write(self.current_row, self.current_col, data)
+        self.current_col += 1
+
+    def on_date(self, data):
+        print('[Date  ]\t', data)
+        self.current_sheet.write(self.current_row, self.current_col, data)
+        self.current_col += 1
+
+    def on_viewer(self, data):
+        print('[Reader]\t', data)
+        self.current_sheet.write(self.current_row, self.current_col, data)
+        self.current_col += 1
+
+    def on_reply(self, data):
+        print('[Reply ]\t', data)
+        self.current_sheet.write(self.current_row, self.current_col, data)
+        self.current_col += 1
+
+    def on_view(self, data):
+        print('[View  ]\t', data)
+        self.current_sheet.write(self.current_row, self.current_col, data)
+        self.current_col += 1
+
+
+class MyHTMLParser(HP.HTMLParser):
     begin = False
 
     start_common = False
@@ -46,6 +110,11 @@ class MyHTMLParser(HTMLParser):
     in_viewer = False
     in_date = False
 
+    data_handler = None
+
+    def set_listener(self, listener):
+        self.data_handler = listener
+
     def handle_starttag(self, tag, attrs):
         attr_dict = dict()
         for (variable, value) in attrs:
@@ -54,15 +123,17 @@ class MyHTMLParser(HTMLParser):
         if tag == 'table':
             if attr_dict.get('id', None) == 'threadlisttableid':
                 self.begin = True
-                print('Start output...')
+                if self.data_handler:
+                    self.data_handler.on_start()
 
         # print '@', self.get_starttag_text()
 
         elif tag == 'tbody':
             if 'id' in attr_dict and attr_dict.get('id', None).startswith('normalthread_'):
-                print('Hit the target[list]', value)
+                # print('Hit the target', value) #debug
                 self.start_common = True
-                print('-----------------------------------------------------------------------')
+                if self.data_handler:
+                    self.data_handler.on_item_begin()
         elif tag == 'td':
             if attr_dict.get('class', None) == 'num':
                 self.start_num = True
@@ -84,30 +155,36 @@ class MyHTMLParser(HTMLParser):
             if len(attr_dict) == 0 and self.start_by:
                 self.in_date = True
 
-    #Value getter
+    # Value getter
     def handle_data(self, data):
-        if self.begin:
+        if self.begin and self.data_handler:
             if self.in_title:
                 self.in_title = False
-                print('Hit the target[title]', data)
+                self.data_handler.on_title(data)
             elif self.in_writer:
                 self.in_writer = False
-                print('Hit the target[writer]', data)
+                self.data_handler.on_writer(data)
             elif self.in_date:
                 self.in_date = False
-                print('Hit the target[date]', data)
+                self.data_handler.on_date(data)
             elif self.in_viewer:
                 self.in_viewer = False
-                print('Hit the target[viewer]', data)
+                self.data_handler.on_viewer(data)
             elif self.start_num:
                 if self.lasttag == 'a':
-                    print('Hit the target[reply]', data)
+                    self.data_handler.on_reply(data)
                 elif self.lasttag == 'em':
-                    print('Hit the target[view]', data)
+                    self.data_handler.on_view(data)
 
     def handle_endtag(self, tag):
         if self.begin:
-            if tag == 'tbody':
+            if tag == 'table':
+                if self.data_handler:
+                    self.data_handler.on_stop()
+            elif tag == 'tbody':
+                if self.data_handler:
+                    self.data_handler.on_item_end()
+            elif tag == 'tbody':
                 if self.start_common:
                     self.start_common = False
             elif tag == 'td':
@@ -120,14 +197,17 @@ class MyHTMLParser(HTMLParser):
 # =============Define===================
 URL = 'https://www.incnjp.com/forum.php?mod=forumdisplay&fid=92&orderby=dateline&filter=author&page=14'
 # =============Run entry================
+data_handler = DataHandler('out.xls')
 try:
-  request_headers = {'User-Agent': 'PeekABoo/1.3.7'}
-  request = urllib.request.Request(URL, None, request_headers)
-  response = urllib.request.urlopen(request)
-  the_page = response.read()
-  if the_page:
-#    print("Body:", the_page) #Debug
-    parser = MyHTMLParser()
-    parser.feed(the_page.decode('utf-8'))
-except urllib.error.URLError as e:
-  print("Error:", e)
+    request_headers = {'User-Agent': 'PeekABoo/1.3.7'}
+    request = UR.Request(URL, None, request_headers)
+    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+    response = UR.urlopen(request, context=ssl_context)
+    the_page = response.read()
+    if the_page:
+        #    print("Body:", the_page) #Debug
+        parser = MyHTMLParser()
+        parser.set_listener(data_handler)
+        parser.feed(the_page.decode('utf-8'))
+except UE.URLError as e:
+    print("Error:", e)
