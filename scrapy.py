@@ -44,13 +44,16 @@ class DataHandler:
         self.current_sheet = self.excel.add_sheet(u'sheet1', cell_overwrite_ok=True)
         self.current_col = 0
         self.current_row = 0
+        self.count = 0;
 
     def on_start(self):
         print(u'Start')
+        self.count = 0
 
     def on_stop(self):
         print(u'Stop')
         self.excel.save(self.excel_name)
+        print(u'Count', self.count)
 
     def on_item_begin(self):
         print(u'>>>>>>>>>>>>')
@@ -58,7 +61,13 @@ class DataHandler:
 
     def on_item_end(self):
         print(u'<<<<<<<<<<<<')
-        self.current_row += 1
+        if self.current_row == 0:
+            # row 0 : title, row 1 : data record
+            self.current_row += 2
+        else:
+            self.current_row += 1
+
+        self.count += 1
 
     def on_link(self, data):
         data = u'http://www.incnjp.com/' + data
@@ -161,20 +170,19 @@ class MyHTMLParser(HP.HTMLParser):
         for (variable, value) in attrs:
             attr_dict[variable] = value
 
-        if tag == 'table':
-            if attr_dict.get('id', None) == 'threadlisttableid':
-                self.begin = True
-                if self.data_handler:
-                    self.data_handler.on_start()
-
         # print '@', self.get_starttag_text()
-
-        elif tag == 'tbody':
-            if 'id' in attr_dict and attr_dict.get('id', None).startswith('normalthread_'):
+        if tag == 'tbody':
+            if attr_dict.get('id', '').startswith('normalthread_'):
+                if not self.begin:
+                    self.begin = True
+                    if self.data_handler:
+                        self.data_handler.on_start()
                 # print('Hit the target', value) #debug
                 self.start_common = True
                 if self.data_handler:
                     self.data_handler.on_item_begin()
+        if not self.begin:
+            pass
         elif tag == 'td':
             if attr_dict.get('class', None) == 'num':
                 self.start_num = True
@@ -217,13 +225,14 @@ class MyHTMLParser(HP.HTMLParser):
                     self.data_handler.on_reply(data)
                 elif self.lasttag == 'em':
                     self.data_handler.on_view(data)
+                    self.start_num = False
 
     def handle_endtag(self, tag):
         if self.begin:
             if tag == 'table':
                 if self.data_handler:
                     self.data_handler.on_stop()
-            elif tag == 'tbody' and self.lasttag == 'a':
+            elif tag == 'tbody':
                 if self.data_handler:
                     self.data_handler.on_item_end()
             elif tag == 'tbody':
@@ -238,7 +247,7 @@ class MyHTMLParser(HP.HTMLParser):
 
 # =============Define===================
 # URL (changeable)
-URL = 'https://www.incnjp.com/forum.php?mod=forumdisplay&fid=92&orderby=dateline&filter=author&page=14'
+URL = 'https://www.incnjp.com/forum-92-1.html'
 # Excel file name (changeable)
 EXCEL_NAME = 'out.xls'
 # =============Run entry================
