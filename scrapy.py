@@ -36,8 +36,6 @@ import xlwt
 </tbody>
 '''
 
-ROOT_PATH = 'http://www.incnjp.com/'
-
 
 class DataHandler:
     def __init__(self, name):
@@ -48,53 +46,96 @@ class DataHandler:
         self.current_row = 0
 
     def on_start(self):
-        print('Start')
-        # Table head
-        row_head = [u'Title', u'Author', u'Date', u'Reply', u'View', u'Reader']
-        for i in range(0, len(row_head)):
-            self.current_sheet.write(0, i, row_head[i])
-        ++self.current_row
+        print(u'Start')
 
     def on_stop(self):
-        print('Stop')
+        print(u'Stop')
         self.excel.save(self.excel_name)
 
     def on_item_begin(self):
-        print('>>>>>>>>>>>>')
+        print(u'>>>>>>>>>>>>')
         self.current_col = 0
 
     def on_item_end(self):
-        print('<<<<<<<<<<<<')
+        print(u'<<<<<<<<<<<<')
         self.current_row += 1
 
-    def on_title(self, data):
-        print('[Title ]\t', data)
-        self.current_sheet.write(self.current_row, self.current_col, data)
+    def on_link(self, data):
+        data = u'http://www.incnjp.com/' + data
+        print(u'[Link  ]\t', data)
+
+        if self.current_row == 0:
+            self.current_sheet.write(0, self.current_col, u'Link')
+            self.current_sheet.write(1, self.current_col, data)
+        else:
+            self.current_sheet.write(self.current_row, self.current_col, data)
+
         self.current_col += 1
 
-    def on_writer(self, data):
-        print('[Author]\t', data)
-        self.current_sheet.write(self.current_row, self.current_col, data)
+    def on_title(self, data):
+        print(u'[Title ]\t', data)
+
+        if self.current_row == 0:
+            self.current_sheet.write(0, self.current_col, u'Title')
+            self.current_sheet.write(1, self.current_col, data)
+        else:
+            self.current_sheet.write(self.current_row, self.current_col, data)
+
+        self.current_col += 1
+
+    def on_author(self, data):
+        print(u'[Author]\t', data)
+
+        if self.current_row == 0:
+            self.current_sheet.write(0, self.current_col, u'Author')
+            self.current_sheet.write(1, self.current_col, data)
+        else:
+            self.current_sheet.write(self.current_row, self.current_col, data)
+
         self.current_col += 1
 
     def on_date(self, data):
-        print('[Date  ]\t', data)
-        self.current_sheet.write(self.current_row, self.current_col, data)
+        print(u'[Date  ]\t', data)
+
+        if self.current_row == 0:
+            self.current_sheet.write(0, self.current_col, u'Date')
+            self.current_sheet.write(1, self.current_col, data)
+        else:
+            self.current_sheet.write(self.current_row, self.current_col, data)
+
         self.current_col += 1
 
-    def on_viewer(self, data):
-        print('[Reader]\t', data)
-        self.current_sheet.write(self.current_row, self.current_col, data)
+    def on_reader(self, data):
+        print(u'[Reader]\t', data)
+
+        if self.current_row == 0:
+            self.current_sheet.write(0, self.current_col, u'Reader')
+            self.current_sheet.write(1, self.current_col, data)
+        else:
+            self.current_sheet.write(self.current_row, self.current_col, data)
+
         self.current_col += 1
 
     def on_reply(self, data):
-        print('[Reply ]\t', data)
-        self.current_sheet.write(self.current_row, self.current_col, data)
+        print(u'[Reply ]\t', data)
+
+        if self.current_row == 0:
+            self.current_sheet.write(0, self.current_col, u'Reply')
+            self.current_sheet.write(1, self.current_col, data)
+        else:
+            self.current_sheet.write(self.current_row, self.current_col, data)
+
         self.current_col += 1
 
     def on_view(self, data):
-        print('[View  ]\t', data)
-        self.current_sheet.write(self.current_row, self.current_col, data)
+        print(u'[View  ]\t', data)
+
+        if self.current_row == 0:
+            self.current_sheet.write(0, self.current_col, u'View')
+            self.current_sheet.write(1, self.current_col, data)
+        else:
+            self.current_sheet.write(self.current_row, self.current_col, data)
+
         self.current_col += 1
 
 
@@ -106,8 +147,8 @@ class MyHTMLParser(HP.HTMLParser):
     start_by = False
 
     in_title = False
-    in_writer = False
-    in_viewer = False
+    in_author = False
+    in_reader = False
     in_date = False
 
     data_handler = None
@@ -145,12 +186,13 @@ class MyHTMLParser(HP.HTMLParser):
         elif tag == 'a':
             if attr_dict.get('class', None) == 's xst':
                 self.in_title = True
-                print(ROOT_PATH + attr_dict.get('href', None))
+                if self.data_handler:
+                    self.data_handler.on_link(attr_dict.get('href', ''))
             elif attr_dict.get('c', None) == '1' and 'href' in attr_dict and self.start_by:
                 if attr_dict.get('href', None).startswith('space-uid-'):
-                    self.in_writer = True
+                    self.in_author = True
                 elif attr_dict.get('href', None).startswith('space-username-'):
-                    self.in_viewer = True
+                    self.in_reader = True
         elif tag == 'span':
             if len(attr_dict) == 0 and self.start_by:
                 self.in_date = True
@@ -161,15 +203,15 @@ class MyHTMLParser(HP.HTMLParser):
             if self.in_title:
                 self.in_title = False
                 self.data_handler.on_title(data)
-            elif self.in_writer:
-                self.in_writer = False
-                self.data_handler.on_writer(data)
+            elif self.in_author:
+                self.in_author = False
+                self.data_handler.on_author(data)
             elif self.in_date:
                 self.in_date = False
                 self.data_handler.on_date(data)
-            elif self.in_viewer:
-                self.in_viewer = False
-                self.data_handler.on_viewer(data)
+            elif self.in_reader:
+                self.in_reader = False
+                self.data_handler.on_reader(data)
             elif self.start_num:
                 if self.lasttag == 'a':
                     self.data_handler.on_reply(data)
@@ -181,7 +223,7 @@ class MyHTMLParser(HP.HTMLParser):
             if tag == 'table':
                 if self.data_handler:
                     self.data_handler.on_stop()
-            elif tag == 'tbody':
+            elif tag == 'tbody' and self.lasttag == 'a':
                 if self.data_handler:
                     self.data_handler.on_item_end()
             elif tag == 'tbody':
@@ -195,9 +237,12 @@ class MyHTMLParser(HP.HTMLParser):
 
 
 # =============Define===================
+# URL (changeable)
 URL = 'https://www.incnjp.com/forum.php?mod=forumdisplay&fid=92&orderby=dateline&filter=author&page=14'
+# Excel file name (changeable)
+EXCEL_NAME = 'out.xls'
 # =============Run entry================
-data_handler = DataHandler('out.xls')
+data_handler = DataHandler(EXCEL_NAME)
 try:
     request_headers = {'User-Agent': 'PeekABoo/1.3.7'}
     request = UR.Request(URL, None, request_headers)
